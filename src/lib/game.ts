@@ -1,0 +1,142 @@
+import type { GameState, Position, Direction } from './types';
+import { GamePhase, CellType, PowerUpType } from './types';
+import { generateMaze, getStartPos, getExitPos } from './maze';
+import { movePlayer } from './player';
+import { createEnemy, updateEnemy, findEnemyPaths } from './enemy';
+import { placeKeys, placePowerUps } from './items';
+import { applyBuff, tickBuffs, getSpeedMultiplier, isInvincible } from './powerup';
+import { addScore, increaseMultiplier, resetMultiplier } from './scoring';
+import { getLevelConfig } from './levels';
+
+export function createGameState(level: number): GameState {
+  const config = getLevelConfig(level);
+  const maze = generateMaze(config.rows, config.cols);
+  const startPos = getStartPos();
+  const exitPos = getExitPos(maze);
+  const keys = placeKeys(maze, config.keyCount);
+  const keyPositions = keys.map((k) => k.position);
+  const powerUps = placePowerUps(maze, config.powerUpCount, [
+    startPos,
+    exitPos,
+    ...keyPositions,
+  ]);
+
+  const enemyPaths = findEnemyPaths(maze, config.enemyCount);
+  const enemies = enemyPaths.map((path) => createEnemy(path, config.enemySpeed));
+
+  return {
+    phase: GamePhase.PLAYING,
+    level,
+    score: 0,
+    levelScore: 0,
+    multiplier: 1,
+    keysCollected: 0,
+    keysTotal: keys.length,
+    speedBuff: null,
+    invincibleBuff: null,
+    maze,
+    player: {
+      position: startPos,
+      speed: 1,
+      moveAccumulator: 0,
+    },
+    enemies,
+    keys,
+    powerUps,
+    exitPosition: exitPos,
+    exitOpen: false,
+  };
+}
+
+export function updateGame(state: GameState, deltaMs: number): GameState {
+  if (state.phase !== GamePhase.PLAYING) return state;
+
+  const { speedBuff, invincibleBuff } = tickBuffs(state.speedBuff, state.invincibleBuff, deltaMs);
+  state.speedBuff = speedBuff;
+  state.invincibleBuff = invincibleBuff;
+
+  for (const enemy of state.enemies) {
+    updateEnemy(enemy, deltaMs);
+  }
+
+  checkEnemyCollision(state);
+
+  return state;
+}
+
+export function handlePlayerMove(state: GameState, dir: Direction): GameState {
+  if (state.phase !== GamePhase.PLAYING) return state;
+
+  const speedMult = getSpeedMultiplier(state.speedBuff);
+  const newPos = movePlayer(state.maze, state.player.position, dir, speedMult);
+  state.player.position = newPos;
+
+  checkKeyPickup(state);
+  checkPowerUpPickup(state);
+  checkEnemyCollision(state);
+  checkExit(state);
+
+  return state;
+}
+
+function checkKeyPickup(state: GameState): void {
+  for (const key of state.keys) {
+    if (!key.collected && key.position.row === state.player.position.row && key.position.col === state.player.position.col) {
+      key.collected = true;
+      state.keysCollected++;
+      addScore(state, 100);
+      increaseMultiplier(state);
+
+      if (state.keysCollected >= state.keysTotal) {
+        state.exitOpen = true;
+      }
+    }
+  }
+}
+
+function checkPowerUpPickup(state: GameState): void {
+  for (const pu of state.powerUps) {
+    if (!pu.collected && pu.position.row === state.player.position.row && pu.position.col === state.player.position.col) {
+      pu.collected = true;
+      addScore(state, 50);
+      increaseMultiplier(state);
+
+      if (pu.type === PowerUpType.SPEED) {
+        state.speedBuff = applyBuff(state.speedBuff, PowerUpType.SPEED);
+      } else {
+        state.invincibleBuff = applyBuff(state.invincibleBuff, PowerUpType.INVINCIBLE);
+      }
+    }
+  }
+}
+
+function checkEnemyCollision(state: GameState): void {
+  if (state.phase !== GamePhase.PLAYING) return;
+
+  for (const enemy of state.enemies) {
+    if (enemy.position.row === state.player.position.row && enemy.position.col === state.player.position.col) {
+      if (isInvincible(state.invincibleBuff)) {
+        resetMultiplier(state);
+        return;
+      }
+      state.phase = GamePhase.GAME_OVER;
+      return;
+    }
+  }
+}
+
+function checkExit(state: GameState): void {
+  if (
+    state.exitOpen &&
+    state.player.position.row === state.exitPosition.row &&
+    state.player.position.col === state.exitPosition.col
+  ) {
+    addScore(state, 500);
+    const maxLevel = 5;
+    if (state.level >= maxLevel) {
+      state.phase = GamePhase.ALL_COMPLETE;
+    } else {
+      state.phase = GamePhase.LEVEL_COMPLETE;
+    }
+  }
+}

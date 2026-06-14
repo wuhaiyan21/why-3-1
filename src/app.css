@@ -1,0 +1,28 @@
+:root {
+  --bg: #0a0e1a;
+  --fg: #e0e0e0;
+  --accent-cyan: #00f0ff;
+  --accent-pink: #ff0066;
+  --accent-gold: #ffd700;
+  --accent-green: #00ff88;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Orbitron', sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+#app {
+  height: 100vh;
+  width: 100vw;
+}
