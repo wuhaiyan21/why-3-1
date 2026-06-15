@@ -8,6 +8,8 @@ import { applyBuff, tickBuffs, getSpeedMultiplier, isInvincible } from './poweru
 import { addScore, increaseMultiplier, resetMultiplier } from './scoring';
 import { getLevelConfig } from './levels';
 
+const BASE_MOVE_COOLDOWN_MS = 120;
+
 export function createGameState(level: number): GameState {
   const config = getLevelConfig(level);
   const maze = generateMaze(config.rows, config.cols);
@@ -39,6 +41,7 @@ export function createGameState(level: number): GameState {
       position: startPos,
       speed: 1,
       moveAccumulator: 0,
+      moveCooldown: 0,
     },
     enemies,
     keys,
@@ -55,6 +58,10 @@ export function updateGame(state: GameState, deltaMs: number): GameState {
   state.speedBuff = speedBuff;
   state.invincibleBuff = invincibleBuff;
 
+  if (state.player.moveCooldown > 0) {
+    state.player.moveCooldown = Math.max(0, state.player.moveCooldown - deltaMs);
+  }
+
   for (const enemy of state.enemies) {
     updateEnemy(enemy, deltaMs);
   }
@@ -66,15 +73,20 @@ export function updateGame(state: GameState, deltaMs: number): GameState {
 
 export function handlePlayerMove(state: GameState, dir: Direction): GameState {
   if (state.phase !== GamePhase.PLAYING) return state;
+  if (state.player.moveCooldown > 0) return state;
 
   const speedMult = getSpeedMultiplier(state.speedBuff);
   const newPos = movePlayer(state.maze, state.player.position, dir, speedMult);
-  state.player.position = newPos;
+  
+  if (newPos.row !== state.player.position.row || newPos.col !== state.player.position.col) {
+    state.player.position = newPos;
+    state.player.moveCooldown = BASE_MOVE_COOLDOWN_MS / speedMult;
 
-  checkKeyPickup(state);
-  checkPowerUpPickup(state);
-  checkEnemyCollision(state);
-  checkExit(state);
+    checkKeyPickup(state);
+    checkPowerUpPickup(state);
+    checkEnemyCollision(state);
+    checkExit(state);
+  }
 
   return state;
 }
@@ -85,7 +97,6 @@ function checkKeyPickup(state: GameState): void {
       key.collected = true;
       state.keysCollected++;
       addScore(state, 100);
-      increaseMultiplier(state);
 
       if (state.keysCollected >= state.keysTotal) {
         state.exitOpen = true;
@@ -116,7 +127,6 @@ function checkEnemyCollision(state: GameState): void {
   for (const enemy of state.enemies) {
     if (enemy.position.row === state.player.position.row && enemy.position.col === state.player.position.col) {
       if (isInvincible(state.invincibleBuff)) {
-        resetMultiplier(state);
         return;
       }
       state.phase = GamePhase.GAME_OVER;

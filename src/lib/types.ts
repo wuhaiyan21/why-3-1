@@ -37,6 +37,7 @@ export interface Player {
   position: Position;
   speed: number;
   moveAccumulator: number;
+  moveCooldown: number;
 }
 
 export interface ActiveBuff {

@@ -35,31 +35,48 @@ export function updateEnemy(enemy: Enemy, deltaMs: number): void {
 export function findEnemyPaths(maze: CellType[][], count: number): Position[][] {
   const paths: Position[][] = [];
   const pathCells = getAllPathCells(maze);
-  const usedCells = new Set<string>();
+  const usedStartCells = new Set<string>();
+  const startKey = `${1},${1}`;
+  const exitKey = `${maze.length - 2},${maze[0].length - 2}`;
+  usedStartCells.add(startKey);
+  usedStartCells.add(exitKey);
 
-  for (let i = 0; i < count && pathCells.length > 0; i++) {
-    const startIdx = Math.floor(Math.random() * pathCells.length);
-    const start = pathCells[startIdx];
-    const key = `${start.row},${start.col}`;
-    if (usedCells.has(key)) {
-      pathCells.splice(startIdx, 1);
-      i--;
-      continue;
-    }
+  let attempts = 0;
+  const maxAttempts = count * 20;
 
-    const path = tracePath(maze, start, usedCells);
+  while (paths.length < count && attempts < maxAttempts) {
+    attempts++;
+    
+    const availableStarts = pathCells.filter(p => !usedStartCells.has(`${p.row},${p.col}`));
+    if (availableStarts.length === 0) break;
+
+    const start = availableStarts[Math.floor(Math.random() * availableStarts.length)];
+    const path = tracePath(maze, start, usedStartCells);
+    
     if (path.length >= 3) {
       paths.push(path);
-      for (const p of path) {
-        usedCells.add(`${p.row},${p.col}`);
+      usedStartCells.add(`${path[0].row},${path[0].col}`);
+    }
+  }
+
+  while (paths.length < count) {
+    const availableStarts = pathCells.filter(p => !usedStartCells.has(`${p.row},${p.col}`));
+    if (availableStarts.length === 0) {
+      const start = pathCells[Math.floor(Math.random() * pathCells.length)];
+      const path = tracePath(maze, start, new Set());
+      if (path.length >= 2) {
+        paths.push(path);
+      } else {
+        paths.push([start, start]);
       }
     } else {
-      pathCells.splice(startIdx, 1);
-      i--;
-    }
-
-    if (pathCells.length === 0 && paths.length < count) {
-      break;
+      const start = availableStarts[Math.floor(Math.random() * availableStarts.length)];
+      const path = tracePath(maze, start, new Set());
+      if (path.length >= 2) {
+        paths.push(path);
+      } else {
+        paths.push([start, start]);
+      }
     }
   }
 
@@ -78,7 +95,7 @@ function getAllPathCells(maze: CellType[][]): Position[] {
   return cells;
 }
 
-function tracePath(maze: CellType[][], start: Position, usedCells: Set<string>): Position[] {
+function tracePath(maze: CellType[][], start: Position, usedStartCells: Set<string>): Position[] {
   const path: Position[] = [start];
   const dirs = [
     { dr: -1, dc: 0 },
@@ -91,13 +108,13 @@ function tracePath(maze: CellType[][], start: Position, usedCells: Set<string>):
   const visited = new Set<string>();
   visited.add(`${start.row},${start.col}`);
 
-  for (let step = 0; step < 20; step++) {
+  for (let step = 0; step < 15; step++) {
     const neighbors: Position[] = [];
     for (const d of dirs) {
       const nr = current.row + d.dr;
       const nc = current.col + d.dc;
       const nk = `${nr},${nc}`;
-      if (isWalkable(maze, nr, nc) && !visited.has(nk)) {
+      if (isWalkable(maze, nr, nc) && !visited.has(nk) && !usedStartCells.has(nk)) {
         neighbors.push({ row: nr, col: nc });
       }
     }

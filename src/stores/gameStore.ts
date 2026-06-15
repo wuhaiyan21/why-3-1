@@ -16,7 +16,7 @@ function createGameStore() {
     speedBuff: null,
     invincibleBuff: null,
     maze: [],
-    player: { position: { row: 1, col: 1 }, speed: 1, moveAccumulator: 0 },
+    player: { position: { row: 1, col: 1 }, speed: 1, moveAccumulator: 0, moveCooldown: 0 },
     enemies: [],
     keys: [],
     powerUps: [],
