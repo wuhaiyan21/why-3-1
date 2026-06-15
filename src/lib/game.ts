@@ -4,7 +4,7 @@ import { generateMaze, getStartPos, getExitPos } from './maze';
 import { movePlayer } from './player';
 import { createEnemy, updateEnemy, findEnemyPaths } from './enemy';
 import { placeKeys, placePowerUps } from './items';
-import { applyBuff, tickBuffs, getSpeedMultiplier, isInvincible } from './powerup';
+import { applyBuff, tickBuffs, getSpeedMultiplier, isInvincible, getMoveCooldownMs } from './powerup';
 import { addScore, increaseMultiplier, resetMultiplier } from './scoring';
 import { getLevelConfig } from './levels';
 
@@ -80,7 +80,7 @@ export function handlePlayerMove(state: GameState, dir: Direction): GameState {
   
   if (newPos.row !== state.player.position.row || newPos.col !== state.player.position.col) {
     state.player.position = newPos;
-    state.player.moveCooldown = BASE_MOVE_COOLDOWN_MS / speedMult;
+    state.player.moveCooldown = getMoveCooldownMs(state.speedBuff, BASE_MOVE_COOLDOWN_MS);
 
     checkKeyPickup(state);
     checkPowerUpPickup(state);
@@ -129,6 +129,7 @@ function checkEnemyCollision(state: GameState): void {
       if (isInvincible(state.invincibleBuff)) {
         return;
       }
+      resetMultiplier(state);
       state.phase = GamePhase.GAME_OVER;
       return;
     }

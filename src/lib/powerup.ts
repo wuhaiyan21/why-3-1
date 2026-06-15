@@ -48,7 +48,14 @@ function tickBuff(buff: ActiveBuff | null, deltaMs: number): ActiveBuff | null {
 
 export function getSpeedMultiplier(buff: ActiveBuff | null): number {
   if (!buff) return 1;
-  return 1 + 0.5 * buff.stacks;
+  return 1 + 0.6 * buff.stacks;
+}
+
+export function getMoveCooldownMs(buff: ActiveBuff | null, baseCooldown: number): number {
+  if (!buff) return baseCooldown;
+  const reductionPerStack = 0.25;
+  const reduction = Math.min(reductionPerStack * buff.stacks, 0.75);
+  return Math.max(30, baseCooldown * (1 - reduction));
 }
 
 export function isInvincible(buff: ActiveBuff | null): boolean {

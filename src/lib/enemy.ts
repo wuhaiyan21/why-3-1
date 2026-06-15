@@ -41,42 +41,46 @@ export function findEnemyPaths(maze: CellType[][], count: number): Position[][] 
   usedStartCells.add(startKey);
   usedStartCells.add(exitKey);
 
-  let attempts = 0;
-  const maxAttempts = count * 20;
+  const protectedRadius = 3;
+  for (let dr = -protectedRadius; dr <= protectedRadius; dr++) {
+    for (let dc = -protectedRadius; dc <= protectedRadius; dc++) {
+      usedStartCells.add(`${1 + dr},${1 + dc}`);
+      usedStartCells.add(`${maze.length - 2 + dr},${maze[0].length - 2 + dc}`);
+    }
+  }
 
-  while (paths.length < count && attempts < maxAttempts) {
-    attempts++;
+  const candidateStarts = pathCells.filter(p => !usedStartCells.has(`${p.row},${p.col}`));
+  shuffleArray(candidateStarts);
+
+  for (const start of candidateStarts) {
+    if (paths.length >= count) break;
     
-    const availableStarts = pathCells.filter(p => !usedStartCells.has(`${p.row},${p.col}`));
-    if (availableStarts.length === 0) break;
+    const startKey = `${start.row},${start.col}`;
+    if (usedStartCells.has(startKey)) continue;
 
-    const start = availableStarts[Math.floor(Math.random() * availableStarts.length)];
-    const path = tracePath(maze, start, usedStartCells);
+    const path = findLongestPath(maze, start, usedStartCells);
     
     if (path.length >= 3) {
       paths.push(path);
-      usedStartCells.add(`${path[0].row},${path[0].col}`);
+      usedStartCells.add(startKey);
+      for (const p of path) {
+        usedStartCells.add(`${p.row},${p.col}`);
+      }
     }
   }
 
   while (paths.length < count) {
-    const availableStarts = pathCells.filter(p => !usedStartCells.has(`${p.row},${p.col}`));
-    if (availableStarts.length === 0) {
-      const start = pathCells[Math.floor(Math.random() * pathCells.length)];
-      const path = tracePath(maze, start, new Set());
-      if (path.length >= 2) {
-        paths.push(path);
-      } else {
-        paths.push([start, start]);
-      }
+    const available = pathCells.filter(p => !usedStartCells.has(`${p.row},${p.col}`));
+    if (available.length === 0) {
+      const fallbackStart = pathCells[Math.floor(Math.random() * pathCells.length)];
+      const fallbackPath = findTwoStepPath(maze, fallbackStart);
+      paths.push(fallbackPath);
+      usedStartCells.add(`${fallbackStart.row},${fallbackStart.col}`);
     } else {
-      const start = availableStarts[Math.floor(Math.random() * availableStarts.length)];
-      const path = tracePath(maze, start, new Set());
-      if (path.length >= 2) {
-        paths.push(path);
-      } else {
-        paths.push([start, start]);
-      }
+      const start = available[Math.floor(Math.random() * available.length)];
+      const path = findTwoStepPath(maze, start);
+      paths.push(path);
+      usedStartCells.add(`${start.row},${start.col}`);
     }
   }
 
@@ -95,8 +99,14 @@ function getAllPathCells(maze: CellType[][]): Position[] {
   return cells;
 }
 
-function tracePath(maze: CellType[][], start: Position, usedStartCells: Set<string>): Position[] {
-  const path: Position[] = [start];
+function shuffleArray<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+
+function findLongestPath(maze: CellType[][], start: Position, blocked: Set<string>): Position[] {
   const dirs = [
     { dr: -1, dc: 0 },
     { dr: 1, dc: 0 },
@@ -104,26 +114,59 @@ function tracePath(maze: CellType[][], start: Position, usedStartCells: Set<stri
     { dr: 0, dc: 1 },
   ];
 
-  let current = start;
+  let bestPath: Position[] = [start];
   const visited = new Set<string>();
   visited.add(`${start.row},${start.col}`);
 
-  for (let step = 0; step < 15; step++) {
-    const neighbors: Position[] = [];
+  function dfs(current: Position, path: Position[]): void {
+    if (path.length > bestPath.length) {
+      bestPath = [...path];
+    }
+    if (path.length >= 8) return;
+
+    const neighbors: { dr: number; dc: number }[] = [];
     for (const d of dirs) {
       const nr = current.row + d.dr;
       const nc = current.col + d.dc;
       const nk = `${nr},${nc}`;
-      if (isWalkable(maze, nr, nc) && !visited.has(nk) && !usedStartCells.has(nk)) {
-        neighbors.push({ row: nr, col: nc });
+      if (isWalkable(maze, nr, nc) && !visited.has(nk) && !blocked.has(nk)) {
+        neighbors.push(d);
       }
     }
-    if (neighbors.length === 0) break;
-    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
-    path.push(next);
-    visited.add(`${next.row},${next.col}`);
-    current = next;
+
+    shuffleArray(neighbors);
+
+    for (const d of neighbors) {
+      const nr = current.row + d.dr;
+      const nc = current.col + d.dc;
+      const nk = `${nr},${nc}`;
+      visited.add(nk);
+      path.push({ row: nr, col: nc });
+      dfs({ row: nr, col: nc }, path);
+      path.pop();
+      visited.delete(nk);
+    }
   }
 
-  return path;
+  dfs(start, [start]);
+  return bestPath;
+}
+
+function findTwoStepPath(maze: CellType[][], start: Position): Position[] {
+  const dirs = [
+    { dr: -1, dc: 0 },
+    { dr: 1, dc: 0 },
+    { dr: 0, dc: -1 },
+    { dr: 0, dc: 1 },
+  ];
+
+  for (const d of dirs) {
+    const nr = start.row + d.dr;
+    const nc = start.col + d.dc;
+    if (isWalkable(maze, nr, nc)) {
+      return [start, { row: nr, col: nc }];
+    }
+  }
+
+  return [start, { row: start.row, col: start.col + 1 }];
 }
