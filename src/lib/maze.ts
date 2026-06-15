@@ -1,7 +1,8 @@
 import { CellType } from './types';
 import type { Position } from './types';
+import { SeededRandom } from './seed';
 
-export function generateMaze(rows: number, cols: number): CellType[][] {
+export function generateMaze(rows: number, cols: number, rng?: SeededRandom): CellType[][] {
   const mazeRows = rows * 2 + 1;
   const mazeCols = cols * 2 + 1;
   const maze: CellType[][] = [];
@@ -56,7 +57,7 @@ export function generateMaze(rows: number, cols: number): CellType[][] {
       continue;
     }
 
-    const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+    const next = rng ? neighbors[rng.nextInt(0, neighbors.length - 1)] : neighbors[Math.floor(Math.random() * neighbors.length)];
     visited[next.row][next.col] = true;
 
     const wallR = current.row * 2 + 1 + next.dr;

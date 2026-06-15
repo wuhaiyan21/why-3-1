@@ -1,7 +1,11 @@
 <script lang="ts">
   import { gameStore } from '../stores/gameStore';
+  import { formatTime } from '../lib/storage';
 
   $: score = $gameStore.score;
+  $: elapsedMs = $gameStore.elapsedMs;
+  $: speedPickups = $gameStore.speedPickups;
+  $: invinciblePickups = $gameStore.invinciblePickups;
 </script>
 
 <div class="overlay">
@@ -9,13 +13,34 @@
     <div class="icon">🏆</div>
     <h2 class="title">ALL CLEAR</h2>
     <p class="message">恭喜通关全部关卡！</p>
-    <div class="score-display">
-      <span class="score-label">FINAL SCORE</span>
-      <span class="score-value">{score}</span>
+
+    <div class="stats-grid">
+      <div class="stat-item">
+        <span class="stat-label">最终用时</span>
+        <span class="stat-value time">{formatTime(elapsedMs)}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">最终得分</span>
+        <span class="stat-value score">{score}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">加速道具</span>
+        <span class="stat-value speed">⚡ {speedPickups}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">无敌道具</span>
+        <span class="stat-value inv">🛡 {invinciblePickups}</span>
+      </div>
     </div>
-    <button class="restart-btn" onclick={() => gameStore.startGame()}>
-      PLAY AGAIN
-    </button>
+
+    <div class="btn-row">
+      <button class="menu-btn" onclick={() => gameStore.goToStart()}>
+        主菜单
+      </button>
+      <button class="restart-btn" onclick={() => gameStore.startGame()}>
+        PLAY AGAIN
+      </button>
+    </div>
   </div>
 </div>
 
@@ -30,6 +55,7 @@
     justify-content: center;
     z-index: 100;
     animation: fadeIn 0.3s ease;
+    padding: 1rem;
   }
 
   @keyframes fadeIn {
@@ -41,14 +67,16 @@
     background: rgba(10, 14, 26, 0.95);
     border: 1px solid rgba(255, 215, 0, 0.3);
     border-radius: 16px;
-    padding: 2.5rem 3rem;
+    padding: 2rem 2.2rem;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.2rem;
+    gap: 1rem;
     box-shadow: 0 0 40px rgba(255, 215, 0, 0.15), 0 0 80px rgba(255, 215, 0, 0.05);
     animation: scaleIn 0.3s ease;
+    max-width: 420px;
+    width: 100%;
   }
 
   @keyframes scaleIn {
@@ -57,12 +85,12 @@
   }
 
   .icon {
-    font-size: 3rem;
+    font-size: 2.8rem;
   }
 
   .title {
     font-family: 'Press Start 2P', cursive;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     color: #ffd700;
     text-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3);
     letter-spacing: 0.15em;
@@ -73,41 +101,115 @@
     color: #a0a8c0;
   }
 
-  .score-display {
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.6rem 1.2rem;
+    width: 100%;
+    padding: 0.7rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 215, 0, 0.15);
+  }
+
+  .stat-item {
     display: flex;
     flex-direction: column;
+    gap: 0.15rem;
+    text-align: left;
+  }
+
+  .stat-label {
+    font-size: 0.6rem;
+    color: #556;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    color: #e0e0e0;
+    display: flex;
+    align-items: center;
     gap: 0.3rem;
   }
 
-  .score-label {
-    font-size: 0.6rem;
-    color: #556;
-    letter-spacing: 0.15em;
+  .stat-value.time {
+    color: #ffd700;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.75rem;
   }
 
-  .score-value {
-    font-family: 'Press Start 2P', cursive;
-    font-size: 2rem;
+  .stat-value.score {
     color: #ffd700;
-    text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+    font-family: 'Press Start 2P', cursive;
+    font-size: 1.4rem;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+  }
+
+  .stat-value.speed {
+    color: #4488ff;
+  }
+
+  .stat-value.inv {
+    color: #ffaa00;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 0.8rem;
+    width: 100%;
+  }
+
+  .menu-btn, .restart-btn {
+    flex: 1;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    padding: 0.7rem 1rem;
+    background: transparent;
+    border: 2px solid;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.3s;
+  }
+
+  .menu-btn {
+    color: #a0a8c0;
+    border-color: rgba(160, 168, 192, 0.4);
+  }
+
+  .menu-btn:hover {
+    background: rgba(160, 168, 192, 0.1);
+    border-color: rgba(160, 168, 192, 0.6);
   }
 
   .restart-btn {
     font-family: 'Press Start 2P', cursive;
-    font-size: 0.8rem;
-    padding: 0.8rem 2rem;
-    background: transparent;
+    font-size: 0.7rem;
     color: #ffd700;
-    border: 2px solid #ffd700;
-    border-radius: 8px;
-    cursor: pointer;
-    letter-spacing: 0.1em;
-    transition: all 0.3s;
+    border-color: #ffd700;
   }
 
   .restart-btn:hover {
     background: rgba(255, 215, 0, 0.1);
     box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
-    transform: scale(1.05);
+    transform: scale(1.03);
+  }
+
+  @media (max-width: 480px) {
+    .card {
+      padding: 1.5rem 1.2rem;
+      gap: 0.9rem;
+    }
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem 0.8rem;
+      padding: 0.5rem;
+    }
+    .btn-row {
+      flex-direction: column;
+    }
   }
 </style>

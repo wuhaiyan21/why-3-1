@@ -7,6 +7,7 @@
   import GameOver from './components/GameOver.svelte';
   import AllComplete from './components/AllComplete.svelte';
   import GameCanvas from './components/GameCanvas.svelte';
+  import Sidebar from './components/Sidebar.svelte';
 
   function handleKeydown(e: KeyboardEvent) {
     const dirMap: Record<string, import('./lib/types').Direction> = {
@@ -37,6 +38,7 @@
   {:else}
     <HUD />
     <GameCanvas />
+    <Sidebar />
     {#if phase === GamePhase.LEVEL_COMPLETE}
       <LevelComplete />
     {:else if phase === GamePhase.GAME_OVER}

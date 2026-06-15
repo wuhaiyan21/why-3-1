@@ -1,6 +1,7 @@
 import type { Enemy, Position } from './types';
 import { CellType } from './types';
 import { isWalkable } from './maze';
+import { SeededRandom } from './seed';
 
 export function createEnemy(path: Position[], speed: number): Enemy {
   return {
@@ -32,7 +33,7 @@ export function updateEnemy(enemy: Enemy, deltaMs: number): void {
   }
 }
 
-export function findEnemyPaths(maze: CellType[][], count: number): Position[][] {
+export function findEnemyPaths(maze: CellType[][], count: number, rng?: SeededRandom): Position[][] {
   const paths: Position[][] = [];
   const pathCells = getAllPathCells(maze);
   const usedStartCells = new Set<string>();
@@ -50,15 +51,15 @@ export function findEnemyPaths(maze: CellType[][], count: number): Position[][] 
   }
 
   const candidateStarts = pathCells.filter(p => !usedStartCells.has(`${p.row},${p.col}`));
-  shuffleArray(candidateStarts);
+  const shuffledStarts = rng ? rng.shuffle(candidateStarts) : shuffleArray(candidateStarts);
 
-  for (const start of candidateStarts) {
+  for (const start of shuffledStarts) {
     if (paths.length >= count) break;
     
     const startKey = `${start.row},${start.col}`;
     if (usedStartCells.has(startKey)) continue;
 
-    const path = findLongestPath(maze, start, usedStartCells);
+    const path = findLongestPath(maze, start, usedStartCells, rng);
     
     if (path.length >= 3) {
       paths.push(path);
@@ -72,12 +73,14 @@ export function findEnemyPaths(maze: CellType[][], count: number): Position[][] 
   while (paths.length < count) {
     const available = pathCells.filter(p => !usedStartCells.has(`${p.row},${p.col}`));
     if (available.length === 0) {
-      const fallbackStart = pathCells[Math.floor(Math.random() * pathCells.length)];
+      const idx = rng ? rng.nextInt(0, pathCells.length - 1) : Math.floor(Math.random() * pathCells.length);
+      const fallbackStart = pathCells[idx];
       const fallbackPath = findTwoStepPath(maze, fallbackStart);
       paths.push(fallbackPath);
       usedStartCells.add(`${fallbackStart.row},${fallbackStart.col}`);
     } else {
-      const start = available[Math.floor(Math.random() * available.length)];
+      const idx = rng ? rng.nextInt(0, available.length - 1) : Math.floor(Math.random() * available.length);
+      const start = available[idx];
       const path = findTwoStepPath(maze, start);
       paths.push(path);
       usedStartCells.add(`${start.row},${start.col}`);
@@ -99,14 +102,16 @@ function getAllPathCells(maze: CellType[][]): Position[] {
   return cells;
 }
 
-function shuffleArray<T>(arr: T[]): void {
-  for (let i = arr.length - 1; i > 0; i--) {
+function shuffleArray<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [result[i], result[j]] = [result[j], result[i]];
   }
+  return result;
 }
 
-function findLongestPath(maze: CellType[][], start: Position, blocked: Set<string>): Position[] {
+function findLongestPath(maze: CellType[][], start: Position, blocked: Set<string>, rng?: SeededRandom): Position[] {
   const dirs = [
     { dr: -1, dc: 0 },
     { dr: 1, dc: 0 },
@@ -134,9 +139,9 @@ function findLongestPath(maze: CellType[][], start: Position, blocked: Set<strin
       }
     }
 
-    shuffleArray(neighbors);
+    const shuffledNeighbors = rng ? rng.shuffle(neighbors) : shuffleArray(neighbors);
 
-    for (const d of neighbors) {
+    for (const d of shuffledNeighbors) {
       const nr = current.row + d.dr;
       const nc = current.col + d.dc;
       const nk = `${nr},${nc}`;

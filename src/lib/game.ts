@@ -7,23 +7,30 @@ import { placeKeys, placePowerUps } from './items';
 import { applyBuff, tickBuffs, getSpeedMultiplier, isInvincible, getMoveCooldownMs } from './powerup';
 import { addScore, increaseMultiplier, resetMultiplier } from './scoring';
 import { getLevelConfig } from './levels';
+import { SeededRandom, makeLevelSeed } from './seed';
+import { getCustomSeed, unlockNextLevel, updateBestRecord } from './storage';
 
 const BASE_MOVE_COOLDOWN_MS = 120;
+export const MAX_LEVEL = 5;
 
-export function createGameState(level: number): GameState {
+export function createGameState(level: number, customSeed?: string): GameState {
   const config = getLevelConfig(level);
-  const maze = generateMaze(config.rows, config.cols);
+  const actualCustomSeed = customSeed !== undefined ? customSeed : getCustomSeed();
+  const fullSeed = makeLevelSeed(level, actualCustomSeed);
+  const rng = new SeededRandom(fullSeed);
+
+  const maze = generateMaze(config.rows, config.cols, rng);
   const startPos = getStartPos();
   const exitPos = getExitPos(maze);
-  const keys = placeKeys(maze, config.keyCount);
+  const keys = placeKeys(maze, config.keyCount, rng);
   const keyPositions = keys.map((k) => k.position);
   const powerUps = placePowerUps(maze, config.powerUpCount, [
     startPos,
     exitPos,
     ...keyPositions,
-  ]);
+  ], rng);
 
-  const enemyPaths = findEnemyPaths(maze, config.enemyCount);
+  const enemyPaths = findEnemyPaths(maze, config.enemyCount, rng);
   const enemies = enemyPaths.map((path) => createEnemy(path, config.enemySpeed));
 
   return {
@@ -48,11 +55,18 @@ export function createGameState(level: number): GameState {
     powerUps,
     exitPosition: exitPos,
     exitOpen: false,
+    elapsedMs: 0,
+    speedPickups: 0,
+    invinciblePickups: 0,
+    seed: fullSeed,
+    customSeed: actualCustomSeed,
   };
 }
 
 export function updateGame(state: GameState, deltaMs: number): GameState {
   if (state.phase !== GamePhase.PLAYING) return state;
+
+  state.elapsedMs += deltaMs;
 
   const { speedBuff, invincibleBuff } = tickBuffs(state.speedBuff, state.invincibleBuff, deltaMs);
   state.speedBuff = speedBuff;
@@ -114,8 +128,10 @@ function checkPowerUpPickup(state: GameState): void {
 
       if (pu.type === PowerUpType.SPEED) {
         state.speedBuff = applyBuff(state.speedBuff, PowerUpType.SPEED);
+        state.speedPickups++;
       } else {
         state.invincibleBuff = applyBuff(state.invincibleBuff, PowerUpType.INVINCIBLE);
+        state.invinciblePickups++;
       }
     }
   }
@@ -136,6 +152,12 @@ function checkEnemyCollision(state: GameState): void {
   }
 }
 
+export interface LevelCompleteResult {
+  timeImproved: boolean;
+  scoreImproved: boolean;
+  nextUnlocked: number;
+}
+
 function checkExit(state: GameState): void {
   if (
     state.exitOpen &&
@@ -143,8 +165,9 @@ function checkExit(state: GameState): void {
     state.player.position.col === state.exitPosition.col
   ) {
     addScore(state, 500);
-    const maxLevel = 5;
-    if (state.level >= maxLevel) {
+    updateBestRecord(state.level, state.elapsedMs, state.levelScore);
+    unlockNextLevel(state.level, MAX_LEVEL);
+    if (state.level >= MAX_LEVEL) {
       state.phase = GamePhase.ALL_COMPLETE;
     } else {
       state.phase = GamePhase.LEVEL_COMPLETE;

@@ -82,6 +82,16 @@ export interface GameState {
   powerUps: PowerUp[];
   exitPosition: Position;
   exitOpen: boolean;
+  elapsedMs: number;
+  speedPickups: number;
+  invinciblePickups: number;
+  seed: string;
+  customSeed: string;
+}
+
+export interface LevelBestRecord {
+  bestTimeMs: number | null;
+  bestScore: number | null;
 }
 
 export type Direction = 'up' | 'down' | 'left' | 'right';

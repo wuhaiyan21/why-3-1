@@ -1,8 +1,9 @@
 import { writable } from 'svelte/store';
 import type { GameState, Direction } from '../lib/types';
 import { GamePhase } from '../lib/types';
-import { createGameState, updateGame, handlePlayerMove } from '../lib/game';
+import { createGameState, updateGame, handlePlayerMove, MAX_LEVEL } from '../lib/game';
 import { render } from '../lib/renderer';
+import { getMaxUnlockedLevel, setCustomSeed as saveCustomSeed, getCustomSeed } from '../lib/storage';
 
 function createGameStore() {
   let state: GameState = {
@@ -22,6 +23,11 @@ function createGameStore() {
     powerUps: [],
     exitPosition: { row: 1, col: 1 },
     exitOpen: false,
+    elapsedMs: 0,
+    speedPickups: 0,
+    invinciblePickups: 0,
+    seed: '',
+    customSeed: getCustomSeed(),
   };
 
   const { subscribe, set, update } = writable(state);
@@ -37,9 +43,23 @@ function createGameStore() {
     startLoop();
   }
 
+  function startLevel(level: number) {
+    const maxUnlocked = getMaxUnlockedLevel();
+    const actualLevel = Math.min(Math.max(1, level), maxUnlocked);
+    state = createGameState(actualLevel);
+    state.score = 0;
+    set(state);
+    startLoop();
+  }
+
   function nextLevel() {
     const nextLvl = state.level + 1;
     const savedScore = state.score;
+    if (nextLvl > MAX_LEVEL) {
+      state.phase = GamePhase.ALL_COMPLETE;
+      set(state);
+      return;
+    }
     state = createGameState(nextLvl);
     state.score = savedScore;
     set(state);
@@ -48,10 +68,24 @@ function createGameStore() {
 
   function retryLevel() {
     const savedScore = state.score - state.levelScore;
-    state = createGameState(state.level);
+    state = createGameState(state.level, state.customSeed);
     state.score = Math.max(0, savedScore);
     set(state);
     startLoop();
+  }
+
+  function restartLevelWithSeed(customSeed: string) {
+    saveCustomSeed(customSeed);
+    const savedScore = state.score - state.levelScore;
+    state = createGameState(state.level, customSeed);
+    state.score = Math.max(0, savedScore);
+    set(state);
+    startLoop();
+  }
+
+  function updateCustomSeed(customSeed: string) {
+    state.customSeed = customSeed;
+    set(state);
   }
 
   function move(dir: Direction) {
@@ -62,6 +96,15 @@ function createGameStore() {
 
   function setCanvas(canvas: HTMLCanvasElement) {
     canvasRef = canvas;
+  }
+
+  function goToStart() {
+    stopLoop();
+    state = {
+      ...state,
+      phase: GamePhase.START,
+    };
+    set(state);
   }
 
   function startLoop() {
@@ -102,12 +145,17 @@ function createGameStore() {
   return {
     subscribe,
     startGame,
+    startLevel,
     nextLevel,
     retryLevel,
+    restartLevelWithSeed,
+    updateCustomSeed,
     move,
     setCanvas,
     startLoop,
     stopLoop,
+    goToStart,
+    MAX_LEVEL,
   };
 }
 

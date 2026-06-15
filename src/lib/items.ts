@@ -1,8 +1,9 @@
 import { CellType, PowerUpType } from './types';
 import type { Position, KeyItem, PowerUp, CellType as CT } from './types';
 import { getStartPos, getExitPos, getPathCells } from './maze';
+import { SeededRandom } from './seed';
 
-export function placeKeys(maze: CT[][], count: number): KeyItem[] {
+export function placeKeys(maze: CT[][], count: number, rng?: SeededRandom): KeyItem[] {
   const paths = getPathCells(maze);
   const start = getStartPos();
   const exit = getExitPos(maze);
@@ -13,19 +14,19 @@ export function placeKeys(maze: CT[][], count: number): KeyItem[] {
       !(p.row === exit.row && p.col === exit.col)
   );
 
-  shuffle(filtered);
+  const shuffled = rng ? rng.shuffle(filtered) : shuffle(filtered);
 
   const keys: KeyItem[] = [];
-  for (let i = 0; i < Math.min(count, filtered.length); i++) {
+  for (let i = 0; i < Math.min(count, shuffled.length); i++) {
     keys.push({
-      position: filtered[i],
+      position: shuffled[i],
       collected: false,
     });
   }
   return keys;
 }
 
-export function placePowerUps(maze: CT[][], count: number, existingPositions: Position[]): PowerUp[] {
+export function placePowerUps(maze: CT[][], count: number, existingPositions: Position[], rng?: SeededRandom): PowerUp[] {
   const paths = getPathCells(maze);
   const start = getStartPos();
   const exit = getExitPos(maze);
@@ -38,22 +39,25 @@ export function placePowerUps(maze: CT[][], count: number, existingPositions: Po
   }
 
   const filtered = paths.filter((p) => !usedSet.has(`${p.row},${p.col}`));
-  shuffle(filtered);
+  const shuffled = rng ? rng.shuffle(filtered) : shuffle(filtered);
 
   const powerUps: PowerUp[] = [];
-  for (let i = 0; i < Math.min(count, filtered.length); i++) {
+  for (let i = 0; i < Math.min(count, shuffled.length); i++) {
+    const randVal = rng ? rng.next() : Math.random();
     powerUps.push({
-      position: filtered[i],
-      type: Math.random() < 0.5 ? PowerUpType.SPEED : PowerUpType.INVINCIBLE,
+      position: shuffled[i],
+      type: randVal < 0.5 ? PowerUpType.SPEED : PowerUpType.INVINCIBLE,
       collected: false,
     });
   }
   return powerUps;
 }
 
-function shuffle<T>(arr: T[]): void {
-  for (let i = arr.length - 1; i > 0; i--) {
+function shuffle<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [result[i], result[j]] = [result[j], result[i]];
   }
+  return result;
 }
