@@ -9,6 +9,7 @@
   $: elapsedMs = $gameStore.elapsedMs;
 
   let localSeed = '';
+  $: if (sidebarOpen) localSeed = customSeed;
 
   function formatTime(ms: number): string {
     const totalSeconds = Math.floor(ms / 1000);
@@ -35,7 +36,7 @@
   }
 
   function restartLevel() {
-    gameStore.retryLevel();
+    gameStore.restartLevelWithSeed(localSeed);
     sidebarOpen = false;
   }
 </script>

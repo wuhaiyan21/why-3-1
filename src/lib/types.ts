@@ -87,6 +87,7 @@ export interface GameState {
   invinciblePickups: number;
   seed: string;
   customSeed: string;
+  isNewTimeRecord: boolean;
 }
 
 export interface LevelBestRecord {

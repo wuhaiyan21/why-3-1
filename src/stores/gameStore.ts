@@ -28,6 +28,7 @@ function createGameStore() {
     invinciblePickups: 0,
     seed: '',
     customSeed: getCustomSeed(),
+    isNewTimeRecord: false,
   };
 
   const { subscribe, set, update } = writable(state);

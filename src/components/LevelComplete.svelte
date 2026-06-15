@@ -10,17 +10,14 @@
   $: invinciblePickups = $gameStore.invinciblePickups;
   $: keysCollected = $gameStore.keysCollected;
   $: levelScore = $gameStore.levelScore;
+  $: isNewRecord = $gameStore.isNewTimeRecord;
 
   let bestTime: number | null = null;
-  let bestScore: number | null = null;
   let nextUnlocked = 1;
-  let isNewRecord = false;
 
   onMount(() => {
     const best = getBestRecord(level);
     bestTime = best.bestTimeMs;
-    bestScore = best.bestScore;
-    isNewRecord = bestTime !== null && elapsedMs <= bestTime;
     nextUnlocked = getMaxUnlockedLevel();
   });
 </script>
@@ -69,12 +66,6 @@
           <span class="best-label">最快时间</span>
           <span class="best-value time">{formatTime(bestTime)}</span>
         </div>
-        {#if bestScore !== null}
-          <div class="best-row">
-            <span class="best-label">最高分数</span>
-            <span class="best-value score">{bestScore}</span>
-          </div>
-        {/if}
       </div>
     {/if}
 
@@ -266,10 +257,6 @@
 
   .best-value.time {
     color: #00ff88;
-  }
-
-  .best-value.score {
-    color: #ffd700;
   }
 
   .unlock-info {

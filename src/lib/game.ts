@@ -8,7 +8,7 @@ import { applyBuff, tickBuffs, getSpeedMultiplier, isInvincible, getMoveCooldown
 import { addScore, increaseMultiplier, resetMultiplier } from './scoring';
 import { getLevelConfig } from './levels';
 import { SeededRandom, makeLevelSeed } from './seed';
-import { getCustomSeed, unlockNextLevel, updateBestRecord } from './storage';
+import { getCustomSeed, unlockNextLevel, updateBestRecord, getBestRecord } from './storage';
 
 const BASE_MOVE_COOLDOWN_MS = 120;
 export const MAX_LEVEL = 5;
@@ -60,6 +60,7 @@ export function createGameState(level: number, customSeed?: string): GameState {
     invinciblePickups: 0,
     seed: fullSeed,
     customSeed: actualCustomSeed,
+    isNewTimeRecord: false,
   };
 }
 
@@ -165,6 +166,8 @@ function checkExit(state: GameState): void {
     state.player.position.col === state.exitPosition.col
   ) {
     addScore(state, 500);
+    const prevBest = getBestRecord(state.level);
+    state.isNewTimeRecord = prevBest.bestTimeMs !== null && state.elapsedMs < prevBest.bestTimeMs;
     updateBestRecord(state.level, state.elapsedMs, state.levelScore);
     unlockNextLevel(state.level, MAX_LEVEL);
     if (state.level >= MAX_LEVEL) {
