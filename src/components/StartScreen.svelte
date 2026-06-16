@@ -219,6 +219,15 @@
           </button>
         {/each}
       </div>
+
+      <div class="data-btn-group">
+        <button class="data-btn export" onclick={handleExport}>
+          导出存档
+        </button>
+        <button class="data-btn import" onclick={handleImport}>
+          导入存档
+        </button>
+      </div>
     </div>
   {/if}
 </div>

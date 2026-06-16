@@ -271,7 +271,9 @@ export function importAndMergeData(jsonString: string): ImportResult {
     console.warn('Failed to save merged best records:', e);
   }
 
-  setCustomSeed(data.customSeed);
+  if (data.customSeed && data.customSeed.trim() !== '') {
+    setCustomSeed(data.customSeed);
+  }
 
   const currentStats = getAllLevelStats();
   for (const key of Object.keys(data.levelStats)) {

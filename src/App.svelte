@@ -111,8 +111,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 90;
+    z-index: 40;
     animation: fadeIn 0.2s ease;
+    pointer-events: none;
+  }
+
+  .pause-overlay .pause-card {
+    pointer-events: auto;
   }
 
   @keyframes fadeIn {
