@@ -8,7 +8,7 @@ import { applyBuff, tickBuffs, getSpeedMultiplier, isInvincible, getMoveCooldown
 import { addScore, increaseMultiplier, resetMultiplier } from './scoring';
 import { getLevelConfig } from './levels';
 import { SeededRandom, makeLevelSeed } from './seed';
-import { getCustomSeed, unlockNextLevel, updateBestRecord, getBestRecord } from './storage';
+import { getCustomSeed, unlockNextLevel, updateBestRecord, getBestRecord, updateLevelStats } from './storage';
 
 const BASE_MOVE_COOLDOWN_MS = 120;
 export const MAX_LEVEL = 5;
@@ -147,6 +147,7 @@ function checkEnemyCollision(state: GameState): void {
         return;
       }
       resetMultiplier(state);
+      updateLevelStats(state.level, 'fail', state.elapsedMs);
       state.phase = GamePhase.GAME_OVER;
       return;
     }
@@ -169,6 +170,7 @@ function checkExit(state: GameState): void {
     const prevBest = getBestRecord(state.level);
     state.isNewTimeRecord = prevBest.bestTimeMs !== null && state.elapsedMs < prevBest.bestTimeMs;
     updateBestRecord(state.level, state.elapsedMs, state.levelScore);
+    updateLevelStats(state.level, 'clear', state.elapsedMs);
     unlockNextLevel(state.level, MAX_LEVEL);
     if (state.level >= MAX_LEVEL) {
       state.phase = GamePhase.ALL_COMPLETE;

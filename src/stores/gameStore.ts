@@ -95,6 +95,19 @@ function createGameStore() {
     set(state);
   }
 
+  function pause() {
+    if (state.phase !== GamePhase.PLAYING) return;
+    state = { ...state, phase: GamePhase.PAUSED };
+    set(state);
+  }
+
+  function resume() {
+    if (state.phase !== GamePhase.PAUSED) return;
+    state = { ...state, phase: GamePhase.PLAYING };
+    lastTime = performance.now();
+    set(state);
+  }
+
   function setCanvas(canvas: HTMLCanvasElement) {
     canvasRef = canvas;
   }
@@ -152,6 +165,8 @@ function createGameStore() {
     restartLevelWithSeed,
     updateCustomSeed,
     move,
+    pause,
+    resume,
     setCanvas,
     startLoop,
     stopLoop,

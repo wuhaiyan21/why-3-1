@@ -1,5 +1,6 @@
 <script lang="ts">
   import { gameStore } from '../stores/gameStore';
+  import { GamePhase } from '../lib/types';
 
   let sidebarOpen = false;
 
@@ -7,6 +8,7 @@
   $: customSeed = $gameStore.customSeed;
   $: seed = $gameStore.seed;
   $: elapsedMs = $gameStore.elapsedMs;
+  $: isPaused = $gameStore.phase === GamePhase.PAUSED;
 
   let localSeed = '';
   $: if (sidebarOpen) localSeed = customSeed;
@@ -20,11 +22,13 @@
   }
 
   function applySeed() {
+    if (isPaused) return;
     gameStore.restartLevelWithSeed(localSeed);
     sidebarOpen = false;
   }
 
   function resetSeed() {
+    if (isPaused) return;
     localSeed = '';
     gameStore.restartLevelWithSeed('');
     sidebarOpen = false;
@@ -36,6 +40,7 @@
   }
 
   function restartLevel() {
+    if (isPaused) return;
     gameStore.restartLevelWithSeed(localSeed);
     sidebarOpen = false;
   }
@@ -73,17 +78,18 @@
       <input
         type="text"
         class="seed-input"
-        placeholder="输入自定义种子..."
+        placeholder={isPaused ? '暂停中不可修改' : '输入自定义种子...'}
         bind:value={localSeed}
+        disabled={isPaused}
         onkeydown={(e) => {
           if (e.key === 'Enter') applySeed();
         }}
       />
       <div class="btn-row">
-        <button class="action-btn primary" onclick={applySeed}>
+        <button class="action-btn primary" onclick={applySeed} disabled={isPaused}>
           应用并重开
         </button>
-        <button class="action-btn secondary" onclick={resetSeed}>
+        <button class="action-btn secondary" onclick={resetSeed} disabled={isPaused}>
           重置
         </button>
       </div>
@@ -92,7 +98,7 @@
     <div class="sidebar-section">
       <div class="section-label">操作</div>
       <div class="btn-column">
-        <button class="action-btn warn" onclick={restartLevel}>
+        <button class="action-btn warn" onclick={restartLevel} disabled={isPaused}>
           重新开始本关
         </button>
         <button class="action-btn ghost" onclick={backToMenu}>
@@ -311,6 +317,22 @@
   .action-btn.ghost:hover {
     background: rgba(255, 0, 102, 0.1);
     transform: translateY(-1px);
+  }
+
+  .action-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .action-btn:disabled:hover {
+    transform: none;
+    background: transparent;
+  }
+
+  .seed-input:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 
   .sidebar-footer {

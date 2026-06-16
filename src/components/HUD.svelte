@@ -75,6 +75,8 @@
       </div>
     {/if}
   </div>
+
+  <button class="pause-btn" onclick={() => gameStore.pause()} title="暂停 (P)">⏸</button>
 </div>
 
 <style>
@@ -230,5 +232,26 @@
     .time-val {
       font-size: 0.6rem;
     }
+  }
+
+  .pause-btn {
+    width: 36px;
+    height: 36px;
+    background: rgba(0, 240, 255, 0.1);
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    border-radius: 8px;
+    color: #00f0ff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .pause-btn:hover {
+    background: rgba(0, 240, 255, 0.2);
+    transform: scale(1.05);
   }
 </style>

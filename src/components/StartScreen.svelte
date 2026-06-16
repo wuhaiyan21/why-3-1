@@ -1,15 +1,26 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { gameStore } from '../stores/gameStore';
-  import { getMaxUnlockedLevel, getBestRecord, formatTime } from '../lib/storage';
+  import { getMaxUnlockedLevel, getBestRecord, getLevelStats, formatTime, exportAllData, importAndMergeData } from '../lib/storage';
+  import type { ImportResult } from '../lib/storage';
   import { LEVEL_CONFIGS } from '../lib/levels';
 
   let showLevelSelect = false;
   let maxUnlocked = 1;
+  let toastMsg = '';
+  let toastType: 'success' | 'error' = 'success';
+  let toastTimer: ReturnType<typeof setTimeout>;
 
   onMount(() => {
     maxUnlocked = getMaxUnlockedLevel();
   });
+
+  function showToast(msg: string, type: 'success' | 'error') {
+    toastMsg = msg;
+    toastType = type;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastMsg = ''; }, 3000);
+  }
 
   function selectLevel(level: number) {
     if (level > maxUnlocked) return;
@@ -19,11 +30,55 @@
   function getLevelInfo(level: number) {
     const config = LEVEL_CONFIGS[Math.min(level - 1, LEVEL_CONFIGS.length - 1)];
     const best = getBestRecord(level);
+    const stats = getLevelStats(level);
     return {
       config,
       bestTime: best.bestTimeMs,
       bestScore: best.bestScore,
+      stats,
     };
+  }
+
+  function handleExport() {
+    try {
+      const data = exportAllData();
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `mazerunner_save_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('数据已导出！', 'success');
+    } catch {
+      showToast('导出失败', 'error');
+    }
+  }
+
+  function handleImport() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const result: ImportResult = importAndMergeData(text);
+        if (result.success) {
+          maxUnlocked = getMaxUnlockedLevel();
+          showToast(result.message, 'success');
+        } else {
+          showToast(result.message, 'error');
+        }
+      } catch {
+        showToast('读取文件失败', 'error');
+      }
+    };
+    input.click();
   }
 </script>
 
@@ -33,6 +88,12 @@
       <div class="particle" style="--delay: {i * 0.3}s; --x: {Math.random() * 100}%; --y: {Math.random() * 100}%;"></div>
     {/each}
   </div>
+
+  {#if toastMsg}
+    <div class="toast" class:success={toastType === 'success'} class:error={toastType === 'error'}>
+      {toastMsg}
+    </div>
+  {/if}
 
   {#if !showLevelSelect}
     <div class="content">
@@ -75,6 +136,15 @@
         </button>
         <button class="start-btn secondary" onclick={() => { showLevelSelect = true; maxUnlocked = getMaxUnlockedLevel(); }}>
           SELECT LEVEL
+        </button>
+      </div>
+
+      <div class="data-btn-group">
+        <button class="data-btn export" onclick={handleExport}>
+          导出存档
+        </button>
+        <button class="data-btn import" onclick={handleImport}>
+          导入存档
         </button>
       </div>
     </div>
@@ -128,6 +198,23 @@
               {:else}
                 <div class="no-record">暂无记录</div>
               {/if}
+              <div class="level-stats">
+                <div class="stats-row">
+                  <span class="stat-item clear">✓ {info.stats.clearCount}</span>
+                  <span class="stat-item fail">✗ {info.stats.failCount}</span>
+                </div>
+                {#if info.stats.lastResult !== null}
+                  <div class="stats-row last-result">
+                    <span class="last-label">上次</span>
+                    <span class="last-value" class:last-clear={info.stats.lastResult === 'clear'} class:last-fail={info.stats.lastResult === 'fail'}>
+                      {info.stats.lastResult === 'clear' ? '通关' : '失败'}
+                    </span>
+                    {#if info.stats.lastTimeMs !== null}
+                      <span class="last-time">{formatTime(info.stats.lastTimeMs)}</span>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
             {/if}
           </button>
         {/each}
@@ -168,6 +255,36 @@
   @keyframes float {
     0%, 100% { opacity: 0; transform: translateY(0); }
     50% { opacity: 0.8; transform: translateY(-30px); }
+  }
+
+  .toast {
+    position: fixed;
+    top: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    z-index: 200;
+    animation: slideDown 0.3s ease;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  .toast.success {
+    background: rgba(0, 255, 136, 0.15);
+    border: 1px solid rgba(0, 255, 136, 0.4);
+    color: #00ff88;
+  }
+
+  .toast.error {
+    background: rgba(255, 0, 102, 0.15);
+    border: 1px solid rgba(255, 0, 102, 0.4);
+    color: #ff0066;
   }
 
   .content {
@@ -302,6 +419,44 @@
 
   .start-btn:active {
     transform: scale(0.98);
+  }
+
+  .data-btn-group {
+    display: flex;
+    gap: 0.8rem;
+    margin-top: 0.5rem;
+  }
+
+  .data-btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    padding: 0.5rem 1.2rem;
+    background: transparent;
+    border: 1px solid;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+
+  .data-btn.export {
+    color: #a0a8c0;
+    border-color: rgba(160, 168, 192, 0.3);
+  }
+
+  .data-btn.export:hover {
+    background: rgba(160, 168, 192, 0.1);
+    border-color: rgba(160, 168, 192, 0.6);
+  }
+
+  .data-btn.import {
+    color: #00f0ff;
+    border-color: rgba(0, 240, 255, 0.3);
+  }
+
+  .data-btn.import:hover {
+    background: rgba(0, 240, 255, 0.1);
+    border-color: rgba(0, 240, 255, 0.6);
   }
 
   .level-select-header {
@@ -464,6 +619,59 @@
     color: #556;
     padding-top: 0.4rem;
     border-top: 1px solid rgba(85, 85, 102, 0.15);
+  }
+
+  .level-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+    padding-top: 0.35rem;
+    border-top: 1px solid rgba(0, 240, 255, 0.1);
+  }
+
+  .stats-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.6rem;
+  }
+
+  .stat-item.clear {
+    color: #00ff88;
+  }
+
+  .stat-item.fail {
+    color: #ff0066;
+  }
+
+  .stats-row.last-result {
+    gap: 0.35rem;
+  }
+
+  .last-label {
+    color: #556;
+    font-size: 0.55rem;
+  }
+
+  .last-value {
+    font-size: 0.6rem;
+    font-weight: 600;
+  }
+
+  .last-value.last-clear {
+    color: #00ff88;
+  }
+
+  .last-value.last-fail {
+    color: #ff0066;
+  }
+
+  .last-time {
+    font-family: 'Press Start 2P', cursive;
+    font-size: 0.5rem;
+    color: #a0a8c0;
   }
 
   @media (max-width: 768px) {

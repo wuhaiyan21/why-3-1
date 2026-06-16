@@ -60,6 +60,7 @@ export interface LevelConfig {
 export enum GamePhase {
   START = 'start',
   PLAYING = 'playing',
+  PAUSED = 'paused',
   LEVEL_COMPLETE = 'level_complete',
   GAME_OVER = 'game_over',
   ALL_COMPLETE = 'all_complete',
@@ -93,6 +94,13 @@ export interface GameState {
 export interface LevelBestRecord {
   bestTimeMs: number | null;
   bestScore: number | null;
+}
+
+export interface LevelStats {
+  clearCount: number;
+  failCount: number;
+  lastResult: 'clear' | 'fail' | null;
+  lastTimeMs: number | null;
 }
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
