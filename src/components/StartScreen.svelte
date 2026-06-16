@@ -5,15 +5,45 @@
   import type { ImportResult } from '../lib/storage';
   import { LEVEL_CONFIGS } from '../lib/levels';
 
+  interface LevelDisplayInfo {
+    config: typeof LEVEL_CONFIGS[number];
+    bestTime: number | null;
+    bestScore: number | null;
+    stats: ReturnType<typeof getLevelStats>;
+    unlocked: boolean;
+  }
+
   let showLevelSelect = false;
-  let maxUnlocked = 1;
+  let refreshTick = 0;
   let toastMsg = '';
   let toastType: 'success' | 'error' = 'success';
   let toastTimer: ReturnType<typeof setTimeout>;
 
-  onMount(() => {
-    maxUnlocked = getMaxUnlockedLevel();
-  });
+  let currentMaxUnlocked = 1;
+  $: {
+    refreshTick;
+    currentMaxUnlocked = getMaxUnlockedLevel();
+  }
+
+  let levelsData: Record<number, LevelDisplayInfo> = {};
+  $: {
+    refreshTick;
+    const result: Record<number, LevelDisplayInfo> = {};
+    const max = getMaxUnlockedLevel();
+    for (let lvl = 1; lvl <= gameStore.MAX_LEVEL; lvl++) {
+      const config = LEVEL_CONFIGS[Math.min(lvl - 1, LEVEL_CONFIGS.length - 1)];
+      const best = getBestRecord(lvl);
+      const stats = getLevelStats(lvl);
+      result[lvl] = {
+        config,
+        bestTime: best.bestTimeMs,
+        bestScore: best.bestScore,
+        stats,
+        unlocked: lvl <= max,
+      };
+    }
+    levelsData = result;
+  }
 
   function showToast(msg: string, type: 'success' | 'error') {
     toastMsg = msg;
@@ -23,20 +53,9 @@
   }
 
   function selectLevel(level: number) {
-    if (level > maxUnlocked) return;
+    const info = levelsData[level];
+    if (!info || !info.unlocked) return;
     gameStore.startLevel(level);
-  }
-
-  function getLevelInfo(level: number) {
-    const config = LEVEL_CONFIGS[Math.min(level - 1, LEVEL_CONFIGS.length - 1)];
-    const best = getBestRecord(level);
-    const stats = getLevelStats(level);
-    return {
-      config,
-      bestTime: best.bestTimeMs,
-      bestScore: best.bestScore,
-      stats,
-    };
   }
 
   function handleExport() {
@@ -69,7 +88,7 @@
         const text = await file.text();
         const result: ImportResult = importAndMergeData(text);
         if (result.success) {
-          maxUnlocked = getMaxUnlockedLevel();
+          refreshTick++;
           showToast(result.message, 'success');
         } else {
           showToast(result.message, 'error');
@@ -80,6 +99,10 @@
     };
     input.click();
   }
+
+  onMount(() => {
+    refreshTick++;
+  });
 </script>
 
 <div class="start-screen">
@@ -127,14 +150,14 @@
 
       <div class="progress-info">
         <span class="progress-label">最高解锁</span>
-        <span class="progress-value">LEVEL {maxUnlocked} / {gameStore.MAX_LEVEL}</span>
+        <span class="progress-value">LEVEL {currentMaxUnlocked} / {gameStore.MAX_LEVEL}</span>
       </div>
 
       <div class="btn-group">
         <button class="start-btn primary" onclick={() => gameStore.startGame()}>
           START GAME
         </button>
-        <button class="start-btn secondary" onclick={() => { showLevelSelect = true; maxUnlocked = getMaxUnlockedLevel(); }}>
+        <button class="start-btn secondary" onclick={() => { showLevelSelect = true; refreshTick++; }}>
           SELECT LEVEL
         </button>
       </div>
@@ -156,19 +179,18 @@
       </div>
 
       <div class="level-grid">
-        {#each Array.from({ length: gameStore.MAX_LEVEL }, (_, i) => i + 1) as level}
-          {@const info = getLevelInfo(level)}
-          {@const unlocked = level <= maxUnlocked}
+        {#each Array.from({ length: gameStore.MAX_LEVEL }, (_, i) => i + 1) as level (level)}
+          {@const info = levelsData[level]}
           <button
             class="level-card"
-            class:locked={!unlocked}
-            class:unlocked={unlocked}
+            class:locked={!info.unlocked}
+            class:unlocked={info.unlocked}
             onclick={() => selectLevel(level)}
-            disabled={!unlocked}
+            disabled={!info.unlocked}
           >
             <div class="level-number">{level}</div>
             <div class="level-name">LEVEL {level}</div>
-            {#if !unlocked}
+            {#if !info.unlocked}
               <div class="lock-icon">🔒</div>
               <div class="lock-text">未解锁</div>
             {:else}
@@ -523,7 +545,7 @@
     cursor: pointer;
     transition: all 0.25s;
     backdrop-filter: blur(8px);
-    min-height: 180px;
+    min-height: 220px;
   }
 
   .level-card.unlocked {
